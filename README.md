@@ -91,8 +91,8 @@ Or copy `.env.example`, edit it, and run `codex-presence --env /path/to/.env`.
 | --- | --- | --- |
 | `--application-id` | `CODEX_DISCORD_APPLICATION_ID` | Use a different Discord application |
 | `--codex-home` | `CODEX_HOME` | Override the Codex data directory |
-| `--remote-hosts` | `CODEX_REMOTE_HOSTS` | Comma-separated SSH aliases, or `off` |
-| `--plan-name` | `CODEX_PLAN_NAME` | Override the detected plan label |
+| `--remote-hosts` | `CODEX_REMOTE_HOSTS` | Comma-separated SSH aliases, `auto` to discover, or `off` (default) |
+| `--plan-name` | `CODEX_PLAN_NAME` | Set a plan label without reading credentials |
 | `--log-level` | `RPC_LOG_LEVEL` | `debug`, `info`, `warn`, `error`, or `silent` |
 | `--log-max-bytes` | `RPC_LOG_MAX_BYTES` | Maximum size of the active log; default 1 MiB |
 
@@ -100,12 +100,17 @@ The repository `.env` is ignored and never published to GitHub or npm.
 
 ## Secure remote Codex sessions
 
-Remote hosts are discovered from Codex's own managed-remote state by default. To use an explicit
-allowlist, configure SSH aliases instead of addresses or shell fragments:
+SSH access is disabled by default. To enable it, configure an explicit allowlist of SSH aliases
+instead of addresses or shell fragments:
 
 ```bash
 codex-presence --remote-hosts work-box,dev-box
 ```
+
+Use `--remote-hosts auto` to opt into discovery from Codex's managed-remote state.
+The service runs a bundled Node.js monitoring script on each enabled host using your existing SSH
+credentials. It reads remote Codex session logs and metadata; raw session records return to this
+computer over SSH. It does not collect Claude usage. Use `--remote-hosts off` to disable SSH.
 
 Only strict SSH alias names are accepted. Values beginning with `-`, user/address forms, whitespace,
 and shell syntax are rejected. SSH runs with `shell: false`, batch mode, connection timeouts, bounded
@@ -115,8 +120,21 @@ reconnect backoff, and no hardcoded hostname, user, port, or key.
 
 The default level is `warn`, so normal polling, hooks, snapshots, and Discord updates are not logged.
 The active log and one archive are each limited to 1 MiB by default. The service reads local Codex
-state, talks to the local Discord IPC endpoint, and only opens SSH for discovered or explicitly
-allowed aliases.
+state and talks to the local Discord IPC endpoint. SSH requires explicit opt-in as described above.
+
+The service does not read `auth.json` by default. Plan information can still come from session events.
+Use `--plan-name Plus` for a manual label, or set `CODEX_READ_AUTH_FILE=true` to allow reading the ID
+token in `auth.json` locally for its plan claim. The token is not included in Discord presence.
+
+Filenames and MCP server names are hidden from presence by default. Set
+`CODEX_SHOW_ACTIVITY_NAMES=true` to display them. Model, plan, limits, usage, estimated costs,
+activity type, and goal timing are still shared with Discord and visible according to your Discord
+activity settings. Session logs may contain private prompts and source code; the service reads them
+locally to derive presence, so run only a copy you trust.
+
+Autostart remains an explicit command. On Windows it installs a per-user Run entry and a hidden
+PowerShell supervisor; on macOS/Linux it installs a user launch agent/systemd service. Remove it
+with `codex-presence autostart:remove`.
 
 ## Build from source
 

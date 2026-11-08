@@ -29,7 +29,7 @@ Options:
   --env <file>              Load an optional environment file
   --application-id <id>     Override the shared Discord application
   --codex-home <path>       Override CODEX_HOME
-  --remote-hosts <aliases>  Comma-separated SSH aliases, or off
+  --remote-hosts <aliases>  SSH aliases, auto to discover, or off (default)
   --plan-name <name>        Override the detected plan label
   --log-level <level>       debug, info, warn, error, or silent
   --log-max-bytes <bytes>   Maximum bytes per log file

@@ -10,7 +10,6 @@ try {
 const HOME = process.env.CODEX_HOME || path.join(os.homedir(), ".codex");
 const SESSIONS = path.join(HOME, "sessions");
 const ARCHIVED_SESSIONS = path.join(HOME, "archived_sessions");
-const CLAUDE_CONFIG_DIR = process.env.CLAUDE_CONFIG_DIR || path.join(os.homedir(), ".claude");
 const POLL_MS = 1000;
 const HEARTBEAT_MS = 20000;
 const SERVICE_TIER_POLL_MS = 2000;
@@ -359,113 +358,9 @@ function codexMonthlyUsage() {
   });
 }
 
-function claudeConfigDirs() {
-  if (process.env.CLAUDE_CONFIG_DIR) {
-    return process.env.CLAUDE_CONFIG_DIR.split(",")
-      .map((value) => value.trim())
-      .filter(Boolean)
-      .map((value) => (path.basename(value).toLowerCase() === "projects" ? path.dirname(value) : value));
-  }
-  const xdg = process.env.XDG_CONFIG_HOME || path.join(os.homedir(), ".config");
-  return [path.join(xdg, "claude"), CLAUDE_CONFIG_DIR];
-}
-
-function claudeMonthlyUsage() {
-  const deduped = [];
-  const exact = new Map();
-  const byMessage = new Map();
-  const anonymous = [];
-  for (const configDir of claudeConfigDirs()) {
-    for (const file of listJsonl(path.join(configDir, "projects"))) {
-      let text;
-      try {
-        text = fs.readFileSync(file, "utf8");
-      } catch (e) {
-        continue;
-      }
-      for (const line of text.split(/\r?\n/)) {
-        if (line.charCodeAt(0) !== 123 || !line.includes('"usage"')) continue;
-        let value;
-        try {
-          value = JSON.parse(line);
-        } catch (e) {
-          continue;
-        }
-        const wrapped = record(record(value.data)?.message);
-        const entry = wrapped && record(wrapped.message) ? wrapped : value;
-        const message = record(entry.message);
-        const raw = record(message?.usage);
-        const at = timestamp(entry.timestamp);
-        const model = message?.model;
-        if (!raw || !at || typeof model !== "string" || model.trim() === "") continue;
-        const cacheCreation = record(raw.cache_creation);
-        const oneHour = positiveCount(cacheCreation?.ephemeral_1h_input_tokens);
-        const fiveMinute = positiveCount(cacheCreation?.ephemeral_5m_input_tokens);
-        const usage = {
-          input: positiveCount(raw.input_tokens),
-          output: positiveCount(raw.output_tokens),
-          cacheRead: positiveCount(raw.cache_read_input_tokens),
-          cacheWrite: cacheCreation ? oneHour + fiveMinute : positiveCount(raw.cache_creation_input_tokens),
-        };
-        if (oneHour > 0) usage.cacheWriteOneHour = Math.min(usage.cacheWrite, oneHour);
-        const total = usage.input + usage.output + usage.cacheRead + usage.cacheWrite;
-        if (total === 0) continue;
-        const requestId = typeof entry.requestId === "string" && entry.requestId !== "" ? entry.requestId : undefined;
-        const event = {
-          at,
-          model: raw.speed === "fast" ? `${model}-fast` : model,
-          usage,
-          total,
-          requestId,
-          sidechain: entry.isSidechain === true,
-        };
-        const id = typeof message.id === "string" && message.id !== "" ? message.id : undefined;
-        if (!id) {
-          anonymous.push(event);
-          continue;
-        }
-        const exactKey = `${id}\u0000${requestId || ""}`;
-        let index = exact.get(exactKey);
-        if (index !== undefined && deduped[index]?.requestId !== requestId) index = undefined;
-        if (index === undefined) {
-          index = byMessage.get(id)?.find((candidate) => event.sidechain || deduped[candidate]?.sidechain === true);
-        }
-        if (index === undefined) {
-          index = deduped.length;
-          deduped.push(event);
-          exact.set(exactKey, index);
-          const indexes = byMessage.get(id) || [];
-          indexes.push(index);
-          byMessage.set(id, indexes);
-          continue;
-        }
-        const existing = deduped[index];
-        if ((existing.sidechain !== event.sidechain && !event.sidechain) ||
-            (existing.sidechain === event.sidechain && event.total > existing.total)) {
-          deduped[index] = event;
-          exact.set(exactKey, index);
-        }
-      }
-    }
-  }
-
-  return usagePeriods([...deduped, ...anonymous], (selected) => {
-    const usageByModel = {};
-    let totalTokens = 0;
-    for (const event of selected) {
-      addUsage(usageByModel, event.model, event.usage);
-      totalTokens += event.total;
-    }
-    return { totalTokens, usageByModel };
-  });
-}
-
 function scanMonthlyUsage() {
   try {
     emitMonthly("codex", codexMonthlyUsage());
-  } catch (e) {}
-  try {
-    emitMonthly("claude", claudeMonthlyUsage());
   } catch (e) {}
 }
 

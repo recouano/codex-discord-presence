@@ -109,7 +109,7 @@ test("state line shows model, effort, action", () => {
   state.model = { id: "gpt-5.5", displayName: "GPT-5.5" };
   state.effort = "xhigh";
   const activity = buildCodexActivity(state, assets);
-  expect(activity.state).toBe("GPT-5.5 (Extra High) • Editing config.ts");
+  expect(activity.state).toBe("GPT-5.5 (Extra High) • Editing files");
 });
 
 test("Thinking shows its elapsed time in seconds", () => {
@@ -139,7 +139,7 @@ test("Fast is appended to the model while the goal remains in the tail", () => {
   state.fastMode = true;
   const activity = buildCodexActivity(state, assets);
   expect(activity.state).toBe(
-    "GPT-5.6 Sol (Extra High) Fast • Editing config.ts • Goal active (1h 1m)",
+    "GPT-5.6 Sol (Extra High) Fast • Editing files • Goal active (1h 1m)",
   );
   expect(activity.state).not.toContain("Fast mode");
 });
@@ -195,11 +195,22 @@ test("small statistics tooltip uses the compact Light-era labels", () => {
     allTime: { costUsd: 1_190, totalTokens: 1_100_000_000 },
   };
   const activity = buildCodexActivity(state, { ...assets, smallImageKey: "usage-stats" });
-  expect(activity.state).toBe("GPT-5.6 Sol (Light) • Editing config.ts");
+  expect(activity.state).toBe("GPT-5.6 Sol (Light) • Editing files");
   expect(activity.smallImageText).toBe(
     "Day\u00a0$1.54·1M\u00a0tok\nWeek\u00a0$231·275.4M\u00a0tok\nMonth\u00a0$654·677.9M\u00a0tok\nTotal\u00a0$1.19K·1.1B\u00a0tok",
   );
   expect(activity.smallImageText!.split("\n").every((line) => !line.includes(" "))).toBe(true);
   expect(Math.max(...activity.smallImageText!.split("\n").map((line) => line.length))).toBeLessThanOrEqual(24);
   expect(new TextEncoder().encode(activity.smallImageText!).length).toBeLessThanOrEqual(128);
+});
+
+test.each([
+  ["Editing private-client.ts", "Editing files"],
+  ["Using confidential-server", "Using tools"],
+  ["Reading from confidential-server", "Reading resources"],
+])("presence hides identifiers in %s unless explicitly enabled", (action, generic) => {
+  const state = { ...base(), action };
+  expect(buildCodexActivity(state, assets).state).toBe(generic);
+  expect(buildCodexActivity(state, { ...assets, showActivityNames: true }).state).toBe(action);
+  expect(state.action).toBe(action);
 });

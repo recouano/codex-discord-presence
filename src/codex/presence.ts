@@ -66,7 +66,13 @@ export function buildCodexActivity(state: PresenceState, assets: ActivityAssets)
     type: 0,
     name: assets.appName,
     details: buildDetails(state, { showResetCountdowns: true }),
-    state: buildStateLine(state),
+    state: buildStateLine(assets.showActivityNames ? state : {
+      ...state,
+      action: state.action.startsWith("Editing ") ? "Editing files"
+        : state.action.startsWith("Using ") ? "Using tools"
+        : state.action.startsWith("Reading from ") ? "Reading resources"
+        : state.action,
+    }),
   };
   const hover = clamp(buildHover(state, assets.appName));
   if (assets.largeImageKey) {

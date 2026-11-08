@@ -119,8 +119,10 @@ test("theme-specific Discord assets are loaded without replacing fallback keys",
   expect(config.smallImageKeyDark).toBe("small-dark");
 });
 
-test("remote hosts are auto-discovered unless explicitly configured or disabled", () => {
-  expect(resolveRemoteHosts(undefined)).toEqual({ hosts: [], discovery: true });
+test("remote access is disabled unless explicitly enabled", () => {
+  expect(resolveRemoteHosts(undefined)).toEqual({ hosts: [], discovery: false });
+  expect(resolveRemoteHosts(" ")).toEqual({ hosts: [], discovery: false });
+  expect(resolveRemoteHosts("auto")).toEqual({ hosts: [], discovery: true });
   expect(resolveRemoteHosts("off")).toEqual({ hosts: [], discovery: false });
   expect(resolveRemoteHosts("work-box, dev_2,work-box")).toEqual({
     hosts: ["work-box", "dev_2"],
@@ -132,4 +134,12 @@ test("remote hosts reject values that could become ssh options or destinations",
   expect(() => resolveRemoteHosts("-oProxyCommand=bad")).toThrow(/unsafe SSH alias/);
   expect(() => resolveRemoteHosts("user@example.com")).toThrow(/unsafe SSH alias/);
   expect(() => resolveRemoteHosts("host name")).toThrow(/unsafe SSH alias/);
+});
+
+test("sensitive data access and display require explicit opt-in", () => {
+  expect(loadConfig({}, runtime).readAuthFile).toBe(false);
+  expect(loadConfig({}, runtime).showActivityNames).toBe(false);
+  const enabled = loadConfig({ CODEX_READ_AUTH_FILE: "true", CODEX_SHOW_ACTIVITY_NAMES: "true" }, runtime);
+  expect(enabled.readAuthFile).toBe(true);
+  expect(enabled.showActivityNames).toBe(true);
 });
