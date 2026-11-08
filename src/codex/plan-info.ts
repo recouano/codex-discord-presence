@@ -48,7 +48,8 @@ function decodePlanType(idToken: string): string | undefined {
 
 let cached: { name: string | undefined; at: number } | undefined;
 
-export async function getCodexPlanName(codexHome: string): Promise<string | undefined> {
+export async function getCodexPlanName(codexHome: string, readAuthFile = false): Promise<string | undefined> {
+  if (!readAuthFile) return undefined;
   const now = Date.now();
   if (cached && now - cached.at < CACHE_TTL_MS) return cached.name;
   let planType: string | undefined;

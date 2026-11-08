@@ -1,5 +1,7 @@
-import { test, expect } from "vitest";
-import { planName } from "../src/codex/plan-info.ts";
+import { test, expect, vi } from "vitest";
+import { readFile } from "node:fs/promises";
+vi.mock("node:fs/promises", () => ({ readFile: vi.fn() }));
+import { getCodexPlanName, planName } from "../src/codex/plan-info.ts";
 
 test("known plan types render without the ChatGPT prefix", () => {
   expect(planName("pro")).toBe("Pro 20X");
@@ -22,4 +24,17 @@ test("case insensitive", () => {
 test("unknown and missing return undefined", () => {
   expect(planName("mystery")).toBeUndefined();
   expect(planName(undefined)).toBeUndefined();
+});
+
+test("auth access is opt-in, including after a plan has been cached", async () => {
+  const read = vi.mocked(readFile);
+  read.mockResolvedValue(JSON.stringify({ tokens: { id_token:
+    `header.${Buffer.from(JSON.stringify({ "https://api.openai.com/auth": { chatgpt_plan_type: "plus" } })).toString("base64url")}.signature`
+  } }));
+  expect(await getCodexPlanName("/private/codex")).toBeUndefined();
+  expect(read).not.toHaveBeenCalled();
+  expect(await getCodexPlanName("/private/codex", true)).toBe("Plus");
+  expect(read).toHaveBeenCalledTimes(1);
+  expect(await getCodexPlanName("/private/codex", false)).toBeUndefined();
+  expect(read).toHaveBeenCalledTimes(1);
 });

@@ -48,6 +48,7 @@ log.info(`presence data: ${config.dataDir}`);
 const rpc = new RpcClient(config.applicationId);
 const assets = {
   appName: config.appName,
+  showActivityNames: config.showActivityNames,
   buttons: [{ label: "Get ChatGPT Presence", url: "https://github.com/dayfinggg/codex-discord-presence" }],
   largeImageKey: config.largeImageKey,
   largeImageKeyLight: config.largeImageKeyLight,
@@ -187,7 +188,7 @@ function setRemoteMonthlyUsage(host: string, agent: "claude" | "codex", raw: Rem
 async function refreshPlan(): Promise<void> {
   if (config.planNameOverride) return;
   try {
-    store.setPlanName(await getCodexPlanName(config.codexHome));
+    store.setPlanName(await getCodexPlanName(config.codexHome, config.readAuthFile));
   } catch (err) {
     log.warn(`plan refresh failed: ${(err as Error).message}`);
   }

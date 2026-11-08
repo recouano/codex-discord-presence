@@ -22,6 +22,7 @@ export interface ActivityButton {
 }
 
 export interface ActivityAssets {
+  showActivityNames?: boolean;
   appName: string;
   largeImageKey?: string;
   largeImageUrl?: string;

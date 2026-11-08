@@ -19,6 +19,8 @@ export interface Config {
   remoteHosts: string[];
   remoteDiscovery: boolean;
   planNameOverride?: string;
+  readAuthFile: boolean;
+  showActivityNames: boolean;
 }
 
 export const DEFAULT_DISCORD_APPLICATION_ID = "1521142415547826177";
@@ -101,8 +103,8 @@ export function resolveRemoteHosts(value: string | undefined): {
   discovery: boolean;
 } {
   const configured = value?.trim();
-  if (!configured) return { hosts: [], discovery: true };
-  if (configured.toLowerCase() === "off") return { hosts: [], discovery: false };
+  if (!configured || configured.toLowerCase() === "off") return { hosts: [], discovery: false };
+  if (configured.toLowerCase() === "auto") return { hosts: [], discovery: true };
 
   const hosts = [...new Set(configured.split(",").map((host) => host.trim()).filter(Boolean))];
   const invalid = hosts.find((host) => !SSH_ALIAS.test(host));
@@ -170,5 +172,7 @@ export function loadConfig(
     remoteHosts: remote.hosts,
     remoteDiscovery: remote.discovery,
     planNameOverride: planNameOverride || undefined,
+    readAuthFile: env.CODEX_READ_AUTH_FILE?.trim().toLowerCase() === "true",
+    showActivityNames: env.CODEX_SHOW_ACTIVITY_NAMES?.trim().toLowerCase() === "true",
   };
 }
